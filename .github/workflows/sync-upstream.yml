@@ -102,10 +102,9 @@ jobs:
           
           echo "Running in mode: DRY_RUN=$DRY_RUN"
           echo ""
-
-          for DIGEST in "${!DIGEST_TAGS[@]}"; do
-            TAGS="${DIGEST_TAGS[$DIGEST]}"
-
+          
+          # Parse DIGEST_TAGS environment variable
+          while IFS='=' read -r DIGEST TAGS; do
             # Skip empty lines
             [ -z "$DIGEST" ] && continue
 
@@ -177,4 +176,6 @@ jobs:
               fi
             done
 
-          done
+          done <<< "$(echo '$DIGEST_TAGS' | tr ' ' '\n')"
+          
+          
