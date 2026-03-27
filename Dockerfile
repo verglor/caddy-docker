@@ -1,6 +1,5 @@
 ARG UPSTREAM_IMAGE=library/caddy
 ARG TAG=2-builder-alpine
-ARG UPSTREAM_DIGEST=
 
 FROM ${UPSTREAM_IMAGE}:${TAG} AS builder
 
@@ -10,6 +9,8 @@ RUN xcaddy build \
     --with github.com/abiosoft/caddy-yaml
 
 FROM scratch
+
+ARG UPSTREAM_DIGEST
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/bin/caddy /bin/
