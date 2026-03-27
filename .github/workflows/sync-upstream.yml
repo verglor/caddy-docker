@@ -1,0 +1,76 @@
+name: Sync Upstream Docker Image
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # every hour
+  workflow_dispatch:
+
+env:
+  UPSTREAM_IMAGE: library/caddy
+  TAG_FILTER: '^\d+\.\d+\.\d+-builder-alpine'
+  REGISTRY: docker.io
+  MY_IMAGE: verglor/caddy
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Fetch and filter upstream tags
+        id: tags
+        run: |
+          echo "Fetching tags for: $UPSTREAM_IMAGE"
+
+          ALL_TAGS=""
+          URL="https://hub.docker.com/v2/repositories/${UPSTREAM_IMAGE}/tags?page_size=100"
+
+          while [ "$URL" != "null" ] && [ -n "$URL" ]; do
+            RESPONSE=$(curl -s "$URL")
+            PAGE_TAGS=$(echo "$RESPONSE" | jq -r '.results[].name')
+            ALL_TAGS="${ALL_TAGS} ${PAGE_TAGS}"
+            URL=$(echo "$RESPONSE" | jq -r '.next')
+          done
+
+          FILTERED=$(echo "$ALL_TAGS" | tr ' ' '\n' | grep -E "$TAG_FILTER" | sort -V)
+          echo "Matched tags:"
+          echo "$FILTERED"
+
+          # Pass as multiline env var
+          echo "FILTERED_TAGS<<EOF" >> $GITHUB_ENV
+          echo "$FILTERED" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Build and push new tags
+        run: |
+          for TAG in $FILTERED_TAGS; do
+            FULL_IMAGE="${REGISTRY}/${MY_IMAGE}:${TAG}"
+
+            # Skip if already published
+            if docker manifest inspect "$FULL_IMAGE" > /dev/null 2>&1; then
+              echo "✓ Already exists, skipping: $TAG"
+              continue
+            fi
+
+            echo "→ Building: $TAG"
+            docker build \
+              --build-arg TAG="$TAG" \
+              --build-arg UPSTREAM_IMAGE="$UPSTREAM_IMAGE" \
+              -t "$FULL_IMAGE" .
+
+            docker push "$FULL_IMAGE"
+            echo "✓ Pushed: $FULL_IMAGE"
+          done
+          
+          
