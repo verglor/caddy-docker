@@ -47,9 +47,15 @@ jobs:
           fi
           echo "✓ Docker Hub login verified"
 
-      - name: Fetch upstream tags and digests
-        id: upstream-digests
+      - name: Fetch upstream tags, build and push new tags
         run: |
+          # Default to false for scheduled runs, use input for workflow_dispatch
+          if [ -n "${{ github.event.inputs.dry_run }}" ]; then
+            DRY_RUN="${{ github.event.inputs.dry_run }}"
+          else
+            DRY_RUN="false"
+          fi
+
           echo "Fetching tags and digests for: $UPSTREAM_IMAGE"
 
           URL="https://hub.docker.com/v2/repositories/${UPSTREAM_IMAGE}/tags?page_size=100"
@@ -84,25 +90,11 @@ jobs:
             echo "  $DIGEST: ${DIGEST_TAGS[$DIGEST]}"
           done
 
-          # Output grouped digests and tags (use JSON format for proper parsing)
-          echo "DIGEST_TAGS<<EOF" >> $GITHUB_ENV
-          for DIGEST in "${!DIGEST_TAGS[@]}"; do
-            echo "${DIGEST}=${DIGEST_TAGS[$DIGEST]}" >> $GITHUB_ENV
-          done
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Build and push new tags
-        run: |
-          # Default to false for scheduled runs, use input for workflow_dispatch
-          if [ -n "${{ github.event.inputs.dry_run }}" ]; then
-            DRY_RUN="${{ github.event.inputs.dry_run }}"
-          else
-            DRY_RUN="false"
-          fi
-          
+          echo ""
           echo "Running in mode: DRY_RUN=$DRY_RUN"
           echo ""
 
+          # Process each unique digest
           for DIGEST in "${!DIGEST_TAGS[@]}"; do
             TAGS="${DIGEST_TAGS[$DIGEST]}"
 
