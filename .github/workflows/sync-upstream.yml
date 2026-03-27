@@ -132,13 +132,28 @@ jobs:
               ORIGINAL_FIRST=$(echo "$TAGS" | cut -d' ' -f1)
 
               echo "  → Building: $ORIGINAL_FIRST -> $FIRST_TAG"
+              
+              # Disable exit on error to continue with next tag if build fails
+              set +e
               docker build \
                 --build-arg TAG="$ORIGINAL_FIRST" \
                 --build-arg UPSTREAM_IMAGE="$UPSTREAM_IMAGE" \
                 --build-arg UPSTREAM_DIGEST="$DIGEST" \
                 -t "$REFERENCE_IMAGE" .
+              BUILD_RESULT=$?
+              set -e
+              
+              if [ $BUILD_RESULT -ne 0 ]; then
+                echo "  ✗ Build failed for $ORIGINAL_FIRST, continuing with next tag..."
+                continue
+              fi
 
               docker push "$REFERENCE_IMAGE"
+              PUSH_RESULT=$?
+              if [ $PUSH_RESULT -ne 0 ]; then
+                echo "  ✗ Push failed for $REFERENCE_IMAGE, continuing with next tag..."
+                continue
+              fi
               echo "  ✓ Pushed: $REFERENCE_IMAGE"
             fi
 
@@ -146,8 +161,16 @@ jobs:
             for CLEANED_TAG in $CLEANED_TAGS; do
               FULL_IMAGE="${REGISTRY}/${MY_IMAGE}:${CLEANED_TAG}"
               if [ "$CLEANED_TAG" != "$FIRST_TAG" ]; then
-                docker tag "$REFERENCE_IMAGE" "$FULL_IMAGE"
+                set +e
+                docker tag "$REFERENCE_IMAGE" "$FULL_IMAGE" 2>/dev/null
                 docker push "$FULL_IMAGE"
+                TAG_PUSH_RESULT=$?
+                set -e
+                
+                if [ $TAG_PUSH_RESULT -ne 0 ]; then
+                  echo "  ✗ Failed to tag/push $FULL_IMAGE, continuing..."
+                  continue
+                fi
                 echo "  ✓ Pushed: $FULL_IMAGE"
               fi
             done
