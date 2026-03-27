@@ -28,6 +28,16 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - name: Verify Docker Hub login
+        run: |
+          # Verify credentials are valid by checking Docker Hub API
+          TOKEN_RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null -u "${{ secrets.DOCKER_HUB_USERNAME }}":"${{ secrets.DOCKER_HUB_TOKEN }}" "https://hub.docker.com/v2/repositories/library/caddy/")
+          if [ "$TOKEN_RESPONSE" != "200" ]; then
+            echo "::error::Docker Hub authentication failed. Please check your credentials."
+            exit 1
+          fi
+          echo "✓ Docker Hub login verified"
+
       - name: Fetch and filter upstream tags
         id: tags
         run: |
