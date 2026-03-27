@@ -84,12 +84,12 @@ jobs:
             echo "  $DIGEST: ${DIGEST_TAGS[$DIGEST]}"
           done
 
-          # Output grouped digests and tags
+          # Output grouped digests and tags (use JSON format for proper parsing)
+          echo "DIGEST_TAGS<<EOF" >> $GITHUB_ENV
           for DIGEST in "${!DIGEST_TAGS[@]}"; do
-            echo "DIGEST_TAGS<<EOF" >> $GITHUB_ENV
             echo "${DIGEST}=${DIGEST_TAGS[$DIGEST]}" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
           done
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Build and push new tags
         run: |
