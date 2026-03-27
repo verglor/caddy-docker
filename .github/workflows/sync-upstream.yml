@@ -4,15 +4,6 @@ on:
   schedule:
     - cron: '0 * * * *'  # every hour
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: 'Run in dry-run mode (no actual build/push)'
-        required: true
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 env:
   UPSTREAM_IMAGE: library/caddy
@@ -140,32 +131,24 @@ jobs:
               # Get original tag for build-arg (first in original list)
               ORIGINAL_FIRST=$(echo "$TAGS" | cut -d' ' -f1)
 
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "  → [DRY RUN] Would build: $ORIGINAL_FIRST -> $FIRST_TAG"
-              else
-                echo "  → Building: $ORIGINAL_FIRST -> $FIRST_TAG"
-                docker build \
-                  --build-arg TAG="$ORIGINAL_FIRST" \
-                  --build-arg UPSTREAM_IMAGE="$UPSTREAM_IMAGE" \
-                  --build-arg UPSTREAM_DIGEST="$DIGEST" \
-                  -t "$REFERENCE_IMAGE" .
+              echo "  → Building: $ORIGINAL_FIRST -> $FIRST_TAG"
+              docker build \
+                --build-arg TAG="$ORIGINAL_FIRST" \
+                --build-arg UPSTREAM_IMAGE="$UPSTREAM_IMAGE" \
+                --build-arg UPSTREAM_DIGEST="$DIGEST" \
+                -t "$REFERENCE_IMAGE" .
 
-                docker push "$REFERENCE_IMAGE"
-                echo "  ✓ Pushed: $REFERENCE_IMAGE"
-              fi
+              docker push "$REFERENCE_IMAGE"
+              echo "  ✓ Pushed: $REFERENCE_IMAGE"
             fi
 
             # Tag and push all cleaned tags
             for CLEANED_TAG in $CLEANED_TAGS; do
               FULL_IMAGE="${REGISTRY}/${MY_IMAGE}:${CLEANED_TAG}"
               if [ "$CLEANED_TAG" != "$FIRST_TAG" ]; then
-                if [ "$DRY_RUN" = "true" ]; then
-                  echo "  ✓ [DRY RUN] Would push: $FULL_IMAGE"
-                else
-                  docker tag "$REFERENCE_IMAGE" "$FULL_IMAGE"
-                  docker push "$FULL_IMAGE"
-                  echo "  ✓ Pushed: $FULL_IMAGE"
-                fi
+                docker tag "$REFERENCE_IMAGE" "$FULL_IMAGE"
+                docker push "$FULL_IMAGE"
+                echo "  ✓ Pushed: $FULL_IMAGE"
               fi
             done
 
