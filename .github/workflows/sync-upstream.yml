@@ -108,11 +108,23 @@ jobs:
             FIRST_TAG=$(echo "$CLEANED_TAGS" | cut -d' ' -f1)
             REFERENCE_IMAGE="${REGISTRY}/${MY_IMAGE}:${FIRST_TAG}"
 
-            # Check if we already built this digest
+            # Check if we already built with the same upstream digest
+            SKIP_BUILD=false
             if docker manifest inspect "$REFERENCE_IMAGE" > /dev/null 2>&1; then
-              echo "  ✓ Already built, pulling: $FIRST_TAG"
-              docker pull "$REFERENCE_IMAGE"
-            else
+              EXISTING_DIGEST=$(docker inspect "$REFERENCE_IMAGE" --format '{{index .Config.Labels "upstream.digest"}}')
+              if [ "$EXISTING_DIGEST" = "$DIGEST" ]; then
+                SKIP_BUILD=true
+                echo "  ✓ Already built with same upstream digest, skipping build"
+                docker pull "$REFERENCE_IMAGE"
+              else
+                echo "  → Upstream digest changed, rebuilding..."
+                echo "    Old: $EXISTING_DIGEST"
+                echo "    New: $DIGEST"
+              fi
+            fi
+
+            # Build only if needed
+            if [ "$SKIP_BUILD" = "false" ]; then
               # Get original tag for build-arg (first in original list)
               ORIGINAL_FIRST=$(echo "$TAGS" | cut -d' ' -f1)
 
