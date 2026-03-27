@@ -16,7 +16,7 @@ on:
 
 env:
   UPSTREAM_IMAGE: library/caddy
-  TAG_FILTER: '.*builder-alpine$'
+  TAG_FILTER: '^(([0-9]+\.){0,2}[0-9]+-)?builder-alpine$'
   REGISTRY: docker.io
   MY_IMAGE: verglor/caddy
 
