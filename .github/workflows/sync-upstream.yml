@@ -48,6 +48,11 @@ jobs:
           fi
           echo "✓ Docker Hub login verified"
 
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
       - name: Determine rebuild mode
         run: |
           # Check if this run was triggered by push to main with Dockerfile changes
@@ -151,8 +156,8 @@ jobs:
             SKIP_BUILD=false
             if [ "$FORCE_REBUILD" = "true" ]; then
               echo "  → Force rebuild enabled (Dockerfile modified), rebuilding all tags..."
-            elif docker manifest inspect "$REFERENCE_IMAGE" > /dev/null 2>&1; then
-              EXISTING_DIGEST=$(docker inspect "$REFERENCE_IMAGE" --format '{{index .Config.Labels "upstream.digest"}}')
+            elif skopeo inspect docker://"$REFERENCE_IMAGE" > /dev/null 2>&1; then
+              EXISTING_DIGEST=$(skopeo inspect docker://"$REFERENCE_IMAGE" | jq -r '.Labels."upstream.digest" // empty')
               if [ "$EXISTING_DIGEST" = "$DIGEST" ]; then
                 SKIP_BUILD=true
                 echo "  ✓ Already built with same upstream digest, skipping build"
